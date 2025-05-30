@@ -2,89 +2,34 @@ import argparse
 from elements.resistor import Resistor
 from elements.cap import Cap
 from elements.v_source import VSource
+from parse import parse_source
 import torch
+from concurrent.futures import ThreadPoolExecutor
 
-
-def parse_source(source):
-    elements = []
-    nodes_seen = set()
-    maximum_node = 0
-    with open(source, "r") as f:
-        for index, line in enumerate(f):
-            line = line.strip()
-            line = line.split()
-            if index == 0:
-                timesteps = int(line[0])
-                sweep_time = float(line[1])
-                timestep = sweep_time / timesteps
-            else:
-                el = "".join([char for char in line[0] if not char.isdigit()])
-                if el == "R":
-                    name = line[0]
-                    n0 = int(line[2])
-                    n1 = int(line[3])
-                    nodes_seen.add(n0)
-                    nodes_seen.add(n1)
-                    maximum_node = max(maximum_node, n0, n1)
-                    resistance = float(line[1])
-                    resistor = Resistor(name, resistance, n0, n1)
-                    elements.append(resistor)
-                    print(
-                        f"Created Resistor: {resistor.name} with R={resistor.R} between nodes {resistor.n0} and {resistor.n1}"
-                    )
-                elif el == "C":
-                    name = line[0]
-                    n0 = int(line[2])
-                    n1 = int(line[3])
-                    nodes_seen.add(n0)
-                    nodes_seen.add(n1)
-                    maximum_node = max(maximum_node, n0, n1)
-                    capacitance = float(line[2])
-                    timestep = float(line[4])
-                    cap = Cap(name, capacitance, n0, n1, timestep)
-                    elements.append(cap)
-                    print(
-                        f"Created Capacitor: {cap.name} with C={cap.C} between nodes {cap.n0} and {cap.n1} with timestep {cap.timestep}"
-                    )
-                elif el == "V":
-                    name = line[0]
-                    n0 = int(line[3])
-                    n1 = int(line[4])
-                    nodes_seen.add(n0)
-                    nodes_seen.add(n1)
-                    maximum_node = max(maximum_node, n0, n1)
-                    start = float(line[1])
-                    end = float(line[2])
-                    timesteps = int(line[5])
-                    vsource = VSource(name, start, end, n0, n1)
-                    elements.append(vsource)
-                    print(
-                        f"Created Voltage Source: {vsource.name} with start={vsource.start}, end={vsource.end} between nodes {vsource.n0} and {vsource.n1}"
-                    )
-                else:
-                    print(f"Unknown element type: {el}")
-    number_of_nodes = len(nodes_seen)
-    if maximum_node >= number_of_nodes:
-        print(
-            f"Warning: Maximum node number {maximum_node} exceeds the number of unique nodes {number_of_nodes}."
-        )
-        exit(1)
-    return elements, number_of_nodes, timesteps, sweep_time
-
-
-def run_simulation(elements, number_of_nodes, timesteps, sweep_time):
-    print("Running simulation...")
+def sim(source, elements, number_of_nodes,timesteps,sweep_time):
     A = torch.zeros((number_of_nodes, number_of_nodes))
     b = torch.zeros((number_of_nodes, 1))
+    tracking = None
     for element in elements:
         if isinstance(element, Resistor):
             one, two = element.G()
             A[one[0], one[0]] += one[1]
             A[two[0], two[0]] += two[1]
+            if element.track:
+                if tracking is None:
+                    tracking = element
+                else:
+                    print(
+                        f"Warning: Multiple tracking elements found. Using {tracking.name} for tracking."
+                    )
         elif isinstance(element, Cap):
-            print(f"Capacitor {element.name} G matrix: {element.G()}")
-        elif isinstance(element, VSource):
-            source = element
+            if element.track:
+                if tracking is None:
+                    tracking = element
+                else:
+                    print(
+                        f"Warning: Multiple tracking elements found. Using {tracking.name} for tracking."
+                    )
         else:
             print(f"Unknown element type: {type(element)}")
     A[0, :] = 0
@@ -98,16 +43,27 @@ def run_simulation(elements, number_of_nodes, timesteps, sweep_time):
         b[source.n1] = voltage
         b[source.n0] = 0
         x = torch.linalg.solve(A, b)
+        with ThreadPoolExecutor() as executor:
+            executor.map(lambda el: el.I(x[el.n1].item(), x[el.n0].item()), elements)
+    if tracking:
+        return tracking.I_values
+    else:
+        raise ValueError("No tracking element found.")
+def run_simulation(epochs,learning_rate,training_parameters,source, elements, number_of_nodes, timesteps, sweep_time):
+    optimizer = torch.optim.Adam(,lr=learning_rate)
+    for step in range(epochs):
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("source", default="simple.txt")
+    parser.add_argument("epochs",default=100)
+    parser.add_argument("lr",default=0.001)
     args = parser.parse_args()
-    elements, number_of_nodes, timesteps, sweep_time = parse_source(
+    source, elements, parameters, number_of_nodes, timesteps, sweep_time = parse_source(
         "schematics/" + args.source
     )
-    run_simulation(elements, number_of_nodes, timesteps, sweep_time)
+    run_simulation(args.epochs,args.lr,source, elements, number_of_nodes, timesteps, sweep_time)
 
 
 if __name__ == "__main__":

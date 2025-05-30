@@ -1,7 +1,16 @@
-class Resistor:
-    def __init__(self, name, resistance, n0, n1, track: bool = False):
+import torch
+
+
+class Resistor(torch.nn.Module):
+    def __init__(
+        self, name, resistance, n0, n1, track: bool = False, train: bool = False
+    ):
+        super().__init__()
         self.name = name
-        self.R = resistance
+        if train:
+            self.R = torch.nn.Parameter(torch.tensor(resistance, dtype=torch.float32))
+        else:
+            self.register_buffer("R", torch.tensor(resistance, dtype=torch.float32))
         self.n0 = n0
         self.n1 = n1
         self.I_values = []

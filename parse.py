@@ -9,6 +9,7 @@ def parse_source(source):
     elements = []
     nodes_seen = set()
     maximum_node = 0
+    parameters = []
     with open(source, "r") as f:
         for index, line in enumerate(f):
             line = line.strip()
@@ -27,7 +28,11 @@ def parse_source(source):
                     nodes_seen.add(n1)
                     maximum_node = max(maximum_node, n0, n1)
                     resistance = float(line[1])
-                    resistor = Resistor(name, resistance, n0, n1)
+                    if len(line) > 4:
+                        track = True
+                    else:
+                        track = False
+                    resistor = Resistor(name, resistance, n0, n1, track)
                     elements.append(resistor)
                     print(
                         f"Created Resistor: {resistor.name} with R={resistor.R} between nodes {resistor.n0} and {resistor.n1}"
@@ -41,7 +46,11 @@ def parse_source(source):
                     maximum_node = max(maximum_node, n0, n1)
                     capacitance = float(line[2])
                     timestep = float(line[4])
-                    cap = Cap(name, capacitance, n0, n1, timestep)
+                    if len(line) > 5:
+                        track = True
+                    else:
+                        track = False
+                    cap = Cap(name, capacitance, n0, n1, timestep, track)
                     elements.append(cap)
                     print(
                         f"Created Capacitor: {cap.name} with C={cap.C} between nodes {cap.n0} and {cap.n1} with timestep {cap.timestep}"
@@ -57,7 +66,7 @@ def parse_source(source):
                     end = float(line[2])
                     timesteps = int(line[5])
                     vsource = VSource(name, start, end, n0, n1)
-                    elements.append(vsource)
+                    source = vsource
                     print(
                         f"Created Voltage Source: {vsource.name} with start={vsource.start}, end={vsource.end} between nodes {vsource.n0} and {vsource.n1}"
                     )
@@ -69,7 +78,7 @@ def parse_source(source):
             f"Warning: Maximum node number {maximum_node} exceeds the number of unique nodes {number_of_nodes}."
         )
         exit(1)
-    return elements, number_of_nodes, timesteps, sweep_time
+    return source, elements, number_of_nodes, timesteps, sweep_time
 
 
 def parse_target(target):
