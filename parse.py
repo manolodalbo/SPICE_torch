@@ -1,7 +1,7 @@
-import argparse
 from elements.resistor import Resistor
 from elements.cap import Cap
 from elements.v_source import VSource
+
 import torch
 
 
@@ -72,43 +72,14 @@ def parse_source(source):
     return elements, number_of_nodes, timesteps, sweep_time
 
 
-def run_simulation(elements, number_of_nodes, timesteps, sweep_time):
-    print("Running simulation...")
-    A = torch.zeros((number_of_nodes, number_of_nodes))
-    b = torch.zeros((number_of_nodes, 1))
-    for element in elements:
-        if isinstance(element, Resistor):
-            one, two = element.G()
-            A[one[0], one[0]] += one[1]
-            A[two[0], two[0]] += two[1]
-        elif isinstance(element, Cap):
-            print(f"Capacitor {element.name} G matrix: {element.G()}")
-        elif isinstance(element, VSource):
-            source = element
-        else:
-            print(f"Unknown element type: {type(element)}")
-    A[0, :] = 0
-    A[0, 0] = 1
-    A[source.n1, source.n1] = 1
-    A[source.n1, source.n0] = -1
-    v_i = source.start
-    v_f = source.end
-    voltages = torch.linspace(v_i, v_f, int(timesteps))
-    for voltage in voltages:
-        b[source.n1] = voltage
-        b[source.n0] = 0
-        x = torch.linalg.solve(A, b)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("source", default="simple.txt")
-    args = parser.parse_args()
-    elements, number_of_nodes, timesteps, sweep_time = parse_source(
-        "schematics/" + args.source
-    )
-    run_simulation(elements, number_of_nodes, timesteps, sweep_time)
-
-
-if __name__ == "__main__":
-    main()
+def parse_target(target):
+    with open(target, "r") as f:
+        lines = f.readlines()
+    target_data = []
+    for line in lines:
+        line = line.strip()
+        if line:
+            values = list(map(float, line.split()))
+            target_data.append(values)
+    target_tensor = torch.tensor(target_data, dtype=torch.float32)
+    return target_tensor

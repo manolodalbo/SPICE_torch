@@ -1,9 +1,11 @@
 class Resistor:
-    def __init__(self, name, resistance, show_IV: bool):
+    def __init__(self, name, resistance, n0, n1, track: bool = False):
         self.name = name
         self.R = resistance
-        self.IV = show_IV
+        self.n0 = n0
+        self.n1 = n1
         self.I_values = []
+        self.track = track
 
     def I(self, V1, V0):
         I = (V1 - V0) / self.R
@@ -11,4 +13,4 @@ class Resistor:
         return I
 
     def G(self):
-        return ((1 / self.R), (-1 / self.R))
+        return ((self.n0, 1 / self.R), (self.n1, -1 / self.R))
