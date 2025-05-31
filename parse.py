@@ -1,8 +1,24 @@
 from elements.resistor import Resistor
 from elements.cap import Cap
 from elements.v_source import VSource
-
+import numpy as np
 import torch
+
+
+def track_and_train(line, start_index):
+    track = False
+    train = False
+    if len(line) > start_index:
+        if line[start_index] == "t":
+            track = True
+        elif line[start_index] == "o":
+            train = True
+    if len(line) > start_index + 1:
+        if line[start_index + 1] == "t":
+            track = True
+        elif line[start_index + 1] == "o":
+            train = True
+    return track, train
 
 
 def parse_source(source):
@@ -21,6 +37,7 @@ def parse_source(source):
             else:
                 el = "".join([char for char in line[0] if not char.isdigit()])
                 if el == "R":
+                    track, train = track_and_train(line, 4)
                     name = line[0]
                     n0 = int(line[2])
                     n1 = int(line[3])
@@ -28,16 +45,12 @@ def parse_source(source):
                     nodes_seen.add(n1)
                     maximum_node = max(maximum_node, n0, n1)
                     resistance = float(line[1])
-                    if len(line) > 4:
-                        track = True
-                    else:
-                        track = False
-                    resistor = Resistor(name, resistance, n0, n1, track)
+                    resistor = Resistor(name, resistance, n0, n1, track, train)
                     elements.append(resistor)
-                    print(
-                        f"Created Resistor: {resistor.name} with R={resistor.R} between nodes {resistor.n0} and {resistor.n1}"
-                    )
+                    if resistor.opt:
+                        parameters.append(resistor.R)
                 elif el == "C":
+                    track, train = track_and_train(line, 5)
                     name = line[0]
                     n0 = int(line[2])
                     n1 = int(line[3])
@@ -52,9 +65,8 @@ def parse_source(source):
                         track = False
                     cap = Cap(name, capacitance, n0, n1, timestep, track)
                     elements.append(cap)
-                    print(
-                        f"Created Capacitor: {cap.name} with C={cap.C} between nodes {cap.n0} and {cap.n1} with timestep {cap.timestep}"
-                    )
+                    if cap.opt:
+                        parameters.append(cap.C)
                 elif el == "V":
                     name = line[0]
                     n0 = int(line[3])
@@ -64,12 +76,8 @@ def parse_source(source):
                     maximum_node = max(maximum_node, n0, n1)
                     start = float(line[1])
                     end = float(line[2])
-                    timesteps = int(line[5])
                     vsource = VSource(name, start, end, n0, n1)
                     source = vsource
-                    print(
-                        f"Created Voltage Source: {vsource.name} with start={vsource.start}, end={vsource.end} between nodes {vsource.n0} and {vsource.n1}"
-                    )
                 else:
                     print(f"Unknown element type: {el}")
     number_of_nodes = len(nodes_seen)
@@ -78,17 +86,52 @@ def parse_source(source):
             f"Warning: Maximum node number {maximum_node} exceeds the number of unique nodes {number_of_nodes}."
         )
         exit(1)
-    return source, elements, number_of_nodes, timesteps, sweep_time
+    return source, elements, parameters, number_of_nodes, timesteps, sweep_time
 
 
-def parse_target(target):
-    with open(target, "r") as f:
+def parse_ltspice_txt(filename):
+    """
+    Parses an LTspice-exported .txt file with two columns.
+
+    Args:
+        filename (str): Path to the .txt file
+
+    Returns:
+        time (np.ndarray): Time values
+        values (np.ndarray): Corresponding column (e.g., I(R1))
+    """
+    with open(filename, "r") as f:
         lines = f.readlines()
-    target_data = []
-    for line in lines:
-        line = line.strip()
-        if line:
-            values = list(map(float, line.split()))
-            target_data.append(values)
-    target_tensor = torch.tensor(target_data, dtype=torch.float32)
-    return target_tensor
+
+    # Skip header
+    data = [line.strip().split() for line in lines[1:] if line.strip()]
+
+    # Convert to float arrays
+    time = np.array([float(row[0]) for row in data])
+    values = np.array([float(row[1]) for row in data])
+
+    return time, values
+
+
+def resample_signal(time, values, timesteps):
+    """
+    Linearly interpolates LTspice signal data to match a given number of time steps.
+
+    Args:
+        time (np.ndarray): Original time values
+        values (np.ndarray): Original signal values (e.g., I(R1))
+        timesteps (int): Desired number of uniformly spaced time steps
+
+    Returns:
+        time_uniform (np.ndarray): Uniformly spaced time points
+        values_uniform (np.ndarray): Interpolated values at those time points
+    """
+    time_uniform = np.linspace(time[0], time[-1], timesteps)
+    values_uniform = np.interp(time_uniform, time, values)
+    return time_uniform, values_uniform
+
+
+def parse_target(target, timesteps):
+    time, values = parse_ltspice_txt(target)
+    t, values_uniform = resample_signal(time, values, timesteps)
+    return torch.from_numpy(values_uniform).float()

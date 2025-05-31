@@ -15,6 +15,7 @@ class Resistor(torch.nn.Module):
         self.n1 = n1
         self.I_values = []
         self.track = track
+        self.opt = train
 
     def I(self, V1, V0):
         I = (V1 - V0) / self.R
@@ -22,4 +23,4 @@ class Resistor(torch.nn.Module):
         return I
 
     def G(self):
-        return ((self.n0, 1 / self.R), (self.n1, -1 / self.R))
+        return ((self.n0, 1 / self.R), (self.n1, 1 / self.R))

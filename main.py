@@ -1,20 +1,23 @@
 import argparse
 from elements.resistor import Resistor
 from elements.cap import Cap
-from elements.v_source import VSource
-from parse import parse_source
+from parse import parse_source, parse_target
 import torch
-from concurrent.futures import ThreadPoolExecutor
 
-def sim(source, elements, number_of_nodes,timesteps,sweep_time):
+
+def sim(source, elements, number_of_nodes, timesteps, sweep_time):
     A = torch.zeros((number_of_nodes, number_of_nodes))
     b = torch.zeros((number_of_nodes, 1))
     tracking = None
     for element in elements:
         if isinstance(element, Resistor):
+            element.I_values = []
             one, two = element.G()
+
             A[one[0], one[0]] += one[1]
+            A[one[0], two[0]] -= two[1]
             A[two[0], two[0]] += two[1]
+            A[two[0], one[0]] -= one[1]
             if element.track:
                 if tracking is None:
                     tracking = element
@@ -34,6 +37,7 @@ def sim(source, elements, number_of_nodes,timesteps,sweep_time):
             print(f"Unknown element type: {type(element)}")
     A[0, :] = 0
     A[0, 0] = 1
+    A[source.n1, :] = 0
     A[source.n1, source.n1] = 1
     A[source.n1, source.n0] = -1
     v_i = source.start
@@ -43,27 +47,61 @@ def sim(source, elements, number_of_nodes,timesteps,sweep_time):
         b[source.n1] = voltage
         b[source.n0] = 0
         x = torch.linalg.solve(A, b)
-        with ThreadPoolExecutor() as executor:
-            executor.map(lambda el: el.I(x[el.n1].item(), x[el.n0].item()), elements)
+        for el in elements:
+            el.I(x[el.n1], x[el.n0])
     if tracking:
         return tracking.I_values
     else:
         raise ValueError("No tracking element found.")
-def run_simulation(epochs,learning_rate,training_parameters,source, elements, number_of_nodes, timesteps, sweep_time):
-    optimizer = torch.optim.Adam(,lr=learning_rate)
-    for step in range(epochs):
+
+
+def run_simulation(
+    epochs,
+    learning_rate,
+    source,
+    elements,
+    training_parameters,
+    number_of_nodes,
+    timesteps,
+    sweep_time,
+    target,
+):
+    optimizer = torch.optim.Adam(training_parameters, lr=learning_rate)
+    criterion = torch.nn.MSELoss()
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        sim_output = sim(source, elements, number_of_nodes, timesteps, sweep_time)
+        output = torch.stack(sim_output).squeeze()
+        loss = criterion(output, target)
+        if epoch % 20 == 0 or epoch == (epochs - 1):
+            print(
+                f"Epoch {epoch:3d} | R = {training_parameters} Ω | Loss = {loss.item():.6f}"
+            )
+        loss.backward()
+        optimizer.step()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("source", default="simple.txt")
-    parser.add_argument("epochs",default=100)
-    parser.add_argument("lr",default=0.001)
+    parser.add_argument("source", nargs="?", default="simple.txt")
+    parser.add_argument("epochs", nargs="?", type=int, default=1000)
+    parser.add_argument("lr", nargs="?", type=float, default=0.1)
     args = parser.parse_args()
     source, elements, parameters, number_of_nodes, timesteps, sweep_time = parse_source(
         "schematics/" + args.source
     )
-    run_simulation(args.epochs,args.lr,source, elements, number_of_nodes, timesteps, sweep_time)
+    target = parse_target("targets/r20.txt", timesteps)
+    run_simulation(
+        args.epochs,
+        args.lr,
+        source,
+        elements,
+        parameters,
+        number_of_nodes,
+        timesteps,
+        sweep_time,
+        target,
+    )
 
 
 if __name__ == "__main__":

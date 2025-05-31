@@ -24,6 +24,7 @@ class Cap(torch.nn.Module):
         self.timestep = timestep
         self.I_values = []
         self.track = track
+        self.opt = train
 
     def I(self, V0, V1):
         self.prev = V1 - V0
