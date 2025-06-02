@@ -21,7 +21,7 @@ def track_and_train(line, start_index):
     return track, train
 
 
-def parse_source(source):
+def parse_source(source, device):
     elements = []
     nodes_seen = set()
     maximum_node = 0
@@ -45,28 +45,43 @@ def parse_source(source):
                     nodes_seen.add(n1)
                     maximum_node = max(maximum_node, n0, n1)
                     resistance = float(line[1])
-                    resistor = Resistor(name, resistance, n0, n1, track, train)
+                    resistor = Resistor(
+                        name, resistance, n0, n1, timesteps, device, track, train
+                    )
                     elements.append(resistor)
                     if resistor.opt:
-                        parameters.append(resistor.R)
+                        parameters.append(
+                            {
+                                "params": [resistor.R],
+                                "lr": resistor.get_lr(),
+                                "name": resistor.name,
+                            }
+                        )
                 elif el == "C":
-                    track, train = track_and_train(line, 5)
+                    track, train = track_and_train(line, 4)
                     name = line[0]
                     n0 = int(line[2])
                     n1 = int(line[3])
                     nodes_seen.add(n0)
                     nodes_seen.add(n1)
                     maximum_node = max(maximum_node, n0, n1)
-                    capacitance = float(line[2])
-                    timestep = float(line[4])
-                    if len(line) > 5:
-                        track = True
-                    else:
-                        track = False
-                    cap = Cap(name, capacitance, n0, n1, timestep, track)
+                    capacitance = float(line[1])
+                    cap = Cap(
+                        name,
+                        capacitance,
+                        n0,
+                        n1,
+                        timestep,
+                        timesteps,
+                        device,
+                        track,
+                        train,
+                    )
                     elements.append(cap)
                     if cap.opt:
-                        parameters.append(cap.C)
+                        parameters.append(
+                            {"params": [cap.C], "lr": cap.get_lr(), "name": cap.name}
+                        )
                 elif el == "V":
                     name = line[0]
                     n0 = int(line[3])
