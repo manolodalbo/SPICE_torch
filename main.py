@@ -85,7 +85,7 @@ def run_simulation(
         )
         output = torch.stack(sim_output).squeeze()
         loss = criterion(output, target)
-        if epoch % 20 == 0 or epoch == (epochs - 1):
+        if epoch % 2 == 0 or epoch == (epochs - 1):
             param_str = ", ".join(
                 f"{group.get('name', 'unnamed')} = {group['params'][0].item():.4f}"
                 for group in training_parameters
@@ -101,7 +101,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     parser = argparse.ArgumentParser()
     parser.add_argument("source", nargs="?", default="simple.txt")
-    parser.add_argument("epochs", nargs="?", type=int, default=5000)
+    parser.add_argument("epochs", nargs="?", type=int, default=700)
     args = parser.parse_args()
     source, elements, parameters, number_of_nodes, timesteps, sweep_time = parse_source(
         "schematics/" + args.source, device
