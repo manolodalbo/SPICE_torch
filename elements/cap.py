@@ -17,12 +17,13 @@ class Cap(torch.nn.Module):
         super().__init__()
         self.name = name
         if train:
-            self.C = torch.nn.Parameter(
-                torch.tensor(capacitance, dtype=torch.float32, device=device)
+            self.raw_C = torch.nn.Parameter(
+                torch.tensor(capacitance, dtype=torch.float32, device=device).log()
             )
         else:
             self.register_buffer(
-                "C", torch.tensor(capacitance, dtype=torch.float32, device=device)
+                "raw_C",
+                torch.tensor(capacitance, dtype=torch.float32, device=device).log(),
             )
         self.n0 = n0
         self.n1 = n1
@@ -32,7 +33,11 @@ class Cap(torch.nn.Module):
         self.I_values = []
         self.track = track
         self.opt = train
-        self.lr = 0.01
+        self.lr = 0.1
+
+    @property
+    def C(self):
+        return torch.exp(self.raw_C)
 
     def I(self, V0, V1):
         i = self.C * ((V1 - V0) - self.prev) / self.timestep
@@ -51,3 +56,6 @@ class Cap(torch.nn.Module):
 
     def get_lr(self):
         return self.lr
+
+    def __str__(self):
+        return f"capacitor: {self.name} with C={self.C} and self.prev={self.prev}"

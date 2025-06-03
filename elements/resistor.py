@@ -17,12 +17,13 @@ class Resistor(torch.nn.Module):
         self.device = device
         self.name = name
         if train:
-            self.R = torch.nn.Parameter(
-                torch.tensor(resistance, dtype=torch.float32, device=self.device)
+            self.raw_R = torch.nn.Parameter(
+                torch.tensor(resistance, dtype=torch.float32, device=self.device).log()
             )
         else:
             self.register_buffer(
-                "R", torch.tensor(resistance, dtype=torch.float32, device=self.device)
+                "raw_R",
+                torch.tensor(resistance, dtype=torch.float32, device=self.device).log(),
             )
         self.n0 = n0
         self.n1 = n1
@@ -31,6 +32,10 @@ class Resistor(torch.nn.Module):
         self.track = track
         self.opt = train
         self.lr = 0.1
+
+    @property
+    def R(self):
+        return torch.exp(self.raw_R)
 
     def I(self, V1, V0):
         I = (V1 - V0) / self.R
@@ -47,3 +52,15 @@ class Resistor(torch.nn.Module):
 
     def get_lr(self):
         return self.lr
+
+    def __str__(self):
+        return (
+            f"Resistor '{self.name}':\n"
+            f"  Nodes: n0 = {self.n0}, n1 = {self.n1}\n"
+            f"  Resistance: {self.R.item():.4f} Ω\n"
+            f"  Trainable: {self.opt}\n"
+            f"  Learning Rate: {self.lr}\n"
+            f"  Tracking Enabled: {self.track}\n"
+            f"  Timesteps: {self.timesteps}\n"
+            f"  Device: {self.device}"
+        )

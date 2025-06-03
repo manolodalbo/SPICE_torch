@@ -3,7 +3,7 @@ from elements.resistor import Resistor
 from elements.cap import Cap
 from parse import parse_source, parse_target
 import torch
-import matplotlib.pyplot as plt
+from utils import plot_target_vs_output
 
 
 def sim(source, elements, number_of_nodes, timesteps, sweep_time, device):
@@ -47,7 +47,15 @@ def sim(source, elements, number_of_nodes, timesteps, sweep_time, device):
         A[source.n1, source.n0] = -1
         b[source.n1] = voltage
         b[source.n0] = 0
-        x = torch.linalg.solve(A, b)
+        try:
+            x = torch.linalg.solve(A, b)
+        except:
+            print("singular matrix")
+            print(A)
+            print(b)
+            for element in elements:
+                print(element)
+            exit()
         for el in elements:
             el.I(x[el.n1], x[el.n0])
     if tracking:
@@ -70,7 +78,6 @@ def run_simulation(
     target = target.to(device)
     optimizer = torch.optim.Adam(training_parameters)
     criterion = torch.nn.MSELoss()
-    torch.autograd.set_detect_anomaly(True)
     for epoch in range(epochs):
         optimizer.zero_grad()
         sim_output = sim(
@@ -78,13 +85,15 @@ def run_simulation(
         )
         output = torch.stack(sim_output).squeeze()
         loss = criterion(output, target)
-        if epoch % 20 == 0 or epoch == (epochs - 1):
+        if epoch % 1 == 0 or epoch == (epochs - 1):
             param_str = ", ".join(
                 f"{group.get('name', 'unnamed')} = {group['params'][0].item():.4f}"
                 for group in training_parameters
             )
+            plot_target_vs_output(target, output, epoch)
             print(f"Epoch {epoch:3d} | {param_str}  | Loss = {loss.item():.3e}")
         loss.backward(retain_graph=True)
+
         optimizer.step()
 
 
@@ -92,12 +101,12 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     parser = argparse.ArgumentParser()
     parser.add_argument("source", nargs="?", default="simple.txt")
-    parser.add_argument("epochs", nargs="?", type=int, default=1000)
+    parser.add_argument("epochs", nargs="?", type=int, default=5000)
     args = parser.parse_args()
     source, elements, parameters, number_of_nodes, timesteps, sweep_time = parse_source(
         "schematics/" + args.source, device
     )
-    target = parse_target("targets/c_setup.txt", timesteps)
+    target = parse_target("targets/c_tricky.txt", timesteps)
     run_simulation(
         args.epochs,
         source,
