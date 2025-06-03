@@ -34,6 +34,15 @@ def parse_source(source, device):
                 timesteps = int(line[0])
                 sweep_time = float(line[1])
                 timestep = sweep_time / timesteps
+                if len(line) > 2:
+                    if line[2] == "h":
+                        hyst = True
+                        if timesteps % 2 == 0:
+                            timesteps += 1
+                    else:
+                        hyst = False
+                else:
+                    hyst = False
             else:
                 el = "".join([char for char in line[0] if not char.isdigit()])
                 if el == "R":
@@ -48,7 +57,7 @@ def parse_source(source, device):
                     resistor = Resistor(
                         name, resistance, n0, n1, timesteps, device, track, train
                     )
-                    resistor.lr = resistor.R / 10
+                    resistor.lr = resistor.R / 100
                     elements.append(resistor)
                     if resistor.opt:
                         parameters.append(
@@ -78,7 +87,7 @@ def parse_source(source, device):
                         track,
                         train,
                     )
-                    cap.lr = cap.C / 10
+                    cap.lr = cap.C / 100
                     elements.append(cap)
                     if cap.opt:
                         parameters.append(
@@ -107,7 +116,7 @@ def parse_source(source, device):
             f"Warning: Maximum node number {maximum_node} exceeds the number of unique nodes {number_of_nodes}."
         )
         exit(1)
-    return source, elements, parameters, number_of_nodes, timesteps, sweep_time
+    return source, elements, parameters, number_of_nodes, timesteps, sweep_time, hyst
 
 
 def parse_ltspice_txt(filename):

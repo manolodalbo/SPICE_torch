@@ -1,5 +1,4 @@
 import torch
-from utils import softplus_inverse
 
 
 class Resistor(torch.nn.Module):
@@ -57,6 +56,9 @@ class Resistor(torch.nn.Module):
 
     def get_lr(self):
         return self.lr
+
+    def reset(self):
+        self.I_values = []
 
     def __str__(self):
         return (

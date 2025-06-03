@@ -27,6 +27,7 @@ class Cap(torch.nn.Module):
             )
         self.n0 = n0
         self.n1 = n1
+        self.device = device
         self.prev = torch.tensor(0.0, device=device)
         self.timestep = timestep
         self.timesteps = timesteps
@@ -52,6 +53,10 @@ class Cap(torch.nn.Module):
 
     def get_lr(self):
         return self.lr
+
+    def reset(self):
+        self.I_values = []
+        self.prev = torch.tensor(0.0, device=self.device)
 
     def __str__(self):
         return f"capacitor: {self.name} with C={self.C} and self.prev={self.prev}"
