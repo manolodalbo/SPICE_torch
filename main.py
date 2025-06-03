@@ -85,7 +85,7 @@ def run_simulation(
         )
         output = torch.stack(sim_output).squeeze()
         loss = criterion(output, target)
-        if epoch % 1 == 0 or epoch == (epochs - 1):
+        if epoch % 20 == 0 or epoch == (epochs - 1):
             param_str = ", ".join(
                 f"{group.get('name', 'unnamed')} = {group['params'][0].item():.4f}"
                 for group in training_parameters

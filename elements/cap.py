@@ -1,4 +1,5 @@
 import torch
+from utils import softplus_inverse
 
 
 class Cap(torch.nn.Module):
@@ -17,13 +18,12 @@ class Cap(torch.nn.Module):
         super().__init__()
         self.name = name
         if train:
-            self.raw_C = torch.nn.Parameter(
-                torch.tensor(capacitance, dtype=torch.float32, device=device).log()
+            self.C = torch.nn.Parameter(
+                torch.tensor(capacitance, dtype=torch.float32, device=device)
             )
         else:
             self.register_buffer(
-                "raw_C",
-                torch.tensor(capacitance, dtype=torch.float32, device=device).log(),
+                "C", torch.tensor(capacitance, dtype=torch.float32, device=device)
             )
         self.n0 = n0
         self.n1 = n1
@@ -34,10 +34,6 @@ class Cap(torch.nn.Module):
         self.track = track
         self.opt = train
         self.lr = 0.1
-
-    @property
-    def C(self):
-        return torch.exp(self.raw_C)
 
     def I(self, V0, V1):
         i = self.C * ((V1 - V0) - self.prev) / self.timestep

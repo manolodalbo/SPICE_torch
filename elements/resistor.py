@@ -1,4 +1,5 @@
 import torch
+from utils import softplus_inverse
 
 
 class Resistor(torch.nn.Module):
@@ -17,13 +18,21 @@ class Resistor(torch.nn.Module):
         self.device = device
         self.name = name
         if train:
-            self.raw_R = torch.nn.Parameter(
-                torch.tensor(resistance, dtype=torch.float32, device=self.device).log()
+            self.R = torch.nn.Parameter(
+                torch.tensor(
+                    resistance,
+                    dtype=torch.float32,
+                    device=self.device,
+                )
             )
         else:
             self.register_buffer(
-                "raw_R",
-                torch.tensor(resistance, dtype=torch.float32, device=self.device).log(),
+                "R",
+                torch.tensor(
+                    resistance,
+                    dtype=torch.float32,
+                    device=self.device,
+                ),
             )
         self.n0 = n0
         self.n1 = n1
@@ -32,10 +41,6 @@ class Resistor(torch.nn.Module):
         self.track = track
         self.opt = train
         self.lr = 0.1
-
-    @property
-    def R(self):
-        return torch.exp(self.raw_R)
 
     def I(self, V1, V0):
         I = (V1 - V0) / self.R

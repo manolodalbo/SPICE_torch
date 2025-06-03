@@ -14,7 +14,11 @@ target_currents = voltages / true_resistance  # I = V / R
 class ResistorModel(nn.Module):
     def __init__(self, initial_R=5.0):
         super().__init__()
-        self.R = nn.Parameter(torch.tensor(initial_R, dtype=torch.float32))
+        self.raw_R = nn.Parameter(torch.tensor(initial_R, dtype=torch.float32).log())
+
+    @property
+    def R(self):
+        return torch.exp(self.raw_R)
 
     def forward(self, V):
         return V / self.R

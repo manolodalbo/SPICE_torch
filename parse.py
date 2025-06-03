@@ -48,12 +48,12 @@ def parse_source(source, device):
                     resistor = Resistor(
                         name, resistance, n0, n1, timesteps, device, track, train
                     )
-                    resistor.lr = resistor.raw_R / 50
+                    resistor.lr = resistor.R / 10
                     elements.append(resistor)
                     if resistor.opt:
                         parameters.append(
                             {
-                                "params": [resistor.raw_R],
+                                "params": [resistor.R],
                                 "lr": resistor.get_lr(),
                                 "name": resistor.name,
                             }
@@ -78,12 +78,12 @@ def parse_source(source, device):
                         track,
                         train,
                     )
-                    cap.lr = cap.raw_C / 50
+                    cap.lr = cap.C / 10
                     elements.append(cap)
                     if cap.opt:
                         parameters.append(
                             {
-                                "params": [cap.raw_C],
+                                "params": [cap.C],
                                 "lr": cap.get_lr(),
                                 "name": cap.name,
                             }

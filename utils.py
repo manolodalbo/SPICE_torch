@@ -27,3 +27,8 @@ def plot_target_vs_output(target, output, epoch, save_dir="plots"):
     filename = os.path.join(save_dir, f"epoch_{epoch:03d}.png")
     plt.savefig(filename)
     plt.close()
+
+
+def softplus_inverse(x):
+    # Numerically stable inverse of softplus: log(exp(x) - 1)
+    return torch.log(torch.expm1(x))
